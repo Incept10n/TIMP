@@ -17,31 +17,70 @@
 using namespace std;
 
 // Функция для получения информации о системе
-string GetSystemInfo() {
-    stringstream sysInfo;
+std::string GetSystemInfo() {
+    std::stringstream sysInfo;
+    HKEY hKey;
+
+    // Получение имени пользователя и имени компьютера
     char userName[256];
     DWORD userNameSize = sizeof(userName);
-    GetUserNameA(userName, &userNameSize);
-    sysInfo << "Name of the user: " << userName << endl;
+    if (GetUserNameA(userName, &userNameSize)) {
+        sysInfo << "User Name: " << userName << std::endl;
+    }
 
     char computerName[256];
     DWORD computerNameSize = sizeof(computerName);
-    GetComputerNameA(computerName, &computerNameSize);
-    sysInfo << "Processor name: " << computerName << endl;
+    if (GetComputerNameA(computerName, &computerNameSize)) {
+        sysInfo << "Computer Name: " << computerName << std::endl;
+    }
 
-    SYSTEM_INFO sysInfoStruct;
-    GetSystemInfo(&sysInfoStruct);
-    sysInfo << "Processor: " << sysInfoStruct.dwProcessorType << endl;
+    // Функция для чтения строкового значения из реестра
+    auto ReadRegistryString = [](HKEY root, LPCWSTR subKey, LPCWSTR valueName) -> std::string {
+        HKEY hKey;
+        if (RegOpenKeyExW(root, subKey, 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+            return "Error";
+        }
 
-    MEMORYSTATUSEX memStatus;
-    memStatus.dwLength = sizeof(memStatus);
-    GlobalMemoryStatusEx(&memStatus);
-    sysInfo << "Memory: " << memStatus.ullTotalPhys / (1024 * 1024) << " MB" << endl;
+        DWORD size = 0;
+        DWORD type = 0;
 
-    OSVERSIONINFOEX osVer;
-    osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-    GetVersionEx((LPOSVERSIONINFO)&osVer);
-    sysInfo << "OS: Windows " << osVer.dwMajorVersion << "." << osVer.dwMinorVersion << endl;
+        // Получаем размер буфера для значения
+        if (RegQueryValueExW(hKey, valueName, NULL, &type, NULL, &size) != ERROR_SUCCESS || type != REG_SZ) {
+            RegCloseKey(hKey);
+            return "Error";
+        }
+
+        std::wstring wresult(size / sizeof(wchar_t), L'\0');
+        if (RegQueryValueExW(hKey, valueName, NULL, NULL, reinterpret_cast<LPBYTE>(&wresult[0]), &size) == ERROR_SUCCESS) {
+            RegCloseKey(hKey);
+            // Преобразуем wstring в string
+            std::string result(wresult.begin(), wresult.end());
+            return result;
+        }
+
+        RegCloseKey(hKey);
+        return "Error";
+    };
+
+    // ================== Информация о процессоре ==================
+    sysInfo << "Processor Name: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"ProcessorNameString") << std::endl;
+    sysInfo << "Processor Vendor: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"VendorIdentifier") << std::endl;
+
+    // ================== Версия BIOS ==================
+    sysInfo << "BIOS Vendor: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"BIOSVendor") << std::endl;
+    sysInfo << "BIOS Version: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"BIOSVersion") << std::endl;
+
+    // ================== Окружение системы ==================
+    sysInfo << "Number of Processors: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", L"NUMBER_OF_PROCESSORS") << std::endl;
+    sysInfo << "Operating System: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", L"OS") << std::endl;
+    sysInfo << "Processor Architecture: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", L"PROCESSOR_ARCHITECTURE") << std::endl;
+    sysInfo << "Processor Identifier: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", L"PROCESSOR_IDENTIFIER") << std::endl;
+
+    // ================== Версия Windows ==================
+    sysInfo << "Windows Product Name: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"ProductName") << std::endl;
+    sysInfo << "Windows Release ID: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"ReleaseId") << std::endl;
+    sysInfo << "Windows Build Number: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"CurrentBuildNumber") << std::endl;
+    sysInfo << "Windows Registered Owner: " << ReadRegistryString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"RegisteredOwner") << std::endl;
 
     return sysInfo.str();
 }

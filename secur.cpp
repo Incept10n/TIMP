@@ -31,18 +31,26 @@ string EncodeInformation(const string& info) {
 }
 
 // Функция для получения подписи из реестра
-string GetSignatureFromRegistry(const string& registryPath) {
+std::string ReadSignatureFromRegistry() {
     HKEY hKey;
-    string signature = "";
-    if (RegOpenKeyExA(HKEY_CURRENT_USER, registryPath.c_str(), 0, KEY_READ, &hKey) == ERROR_SUCCESS) {  // Используем RegOpenKeyExA
-        DWORD size;
-        RegQueryValueExA(hKey, "Signature", NULL, NULL, NULL, &size);  // Используем RegQueryValueExA
-        char* value = new char[size];
-        RegQueryValueExA(hKey, "Signature", NULL, NULL, (LPBYTE)value, &size);
-        signature = string(value);
-        delete[] value;
+    std::string signature;
+    
+    // Open the registry key
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Software\\Mikhailik"), 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD dataType = REG_SZ;
+        char buffer[256];  // Define a buffer for the signature value
+        DWORD bufferSize = sizeof(buffer);  // Size of the buffer
+        
+        // Read the value from the registry
+        if (RegQueryValueEx(hKey, TEXT("Signature"), 0, &dataType, (LPBYTE)buffer, &bufferSize) == ERROR_SUCCESS) {
+            signature.assign(buffer, bufferSize - 1);  // Exclude null-terminator from the end
+        }
+        
         RegCloseKey(hKey);
+    } else {
+        std::cerr << "Failed to open registry key" << std::endl;
     }
+
     return signature;
 }
 
@@ -89,7 +97,7 @@ int main() {
     string fileContents = buffer.str();
 
     // 2. Считываем подпись из реестра
-    string savedSignature = GetSignatureFromRegistry("SOFTWARE\\Mikhailik");
+    string savedSignature = ReadSignatureFromRegistry();
 
     if (savedSignature.empty()) {
         cout << "Signature not found in registry!" << endl;
@@ -98,11 +106,11 @@ int main() {
 
     // 4. Проверяем подпись
     if (VerifySignature(userKey, savedSignature, fileContents)) {
-        cout << "Signature is correct, access to sys.tat allowed." << endl;
         string icaclsCommand = "icacls sys.tat /reset";
         string attribCommand = "attrib -h -s -r sys.tat";
         system(icaclsCommand.c_str());
         system(attribCommand.c_str());
+        cout << "Signature is correct, access to sys.tat allowed." << endl;
 
     } else {
         cout << "Wrong key! Access denied." << endl;
