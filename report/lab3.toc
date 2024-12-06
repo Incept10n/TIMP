@@ -1,0 +1,7 @@
+\babel@toc {russian}{}\relax 
+\contentsline {section}{{\cyrillictext \CYRS \cyro \cyrd \cyre \cyrr \cyrzh \cyra \cyrn \cyri \cyre }}{2}{section*.1}%
+\contentsline {section}{\numberline {1}Техническое задание}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}(A)}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}(B)}{3}{subsection.1.2}%
+\contentsline {section}{\numberline {2}Выполнение задания А}{4}{section.2}%
+\contentsline {section}{\numberline {3}Выполнение задания B}{4}{section.3}%
